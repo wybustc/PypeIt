@@ -465,9 +465,9 @@ def get_censpec(slit_cen, slitmask, arcimg, gpm=None, box_rad=3.0,
         Shape is (nslits,).
     """
     # Initialize the good pixel mask
-    _gpm = slitmask > -1 if gpm is None else gpm & (slitmask > -1)
+    # _gpm = slitmask > -1 if gpm is None else gpm & (slitmask > -1)
     # Mask saturated parts of the arc image for the extraction
-    _gpm = _gpm & (arcimg < nonlinear_counts)
+    _gpm = gpm & (arcimg < nonlinear_counts)
 
     # Inialize output
     arc_spec = np.zeros_like(slit_cen)

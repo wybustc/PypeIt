@@ -235,3 +235,11 @@ class JWSTTelescopePar(TelescopePar):
                                               latitude=0.0,
                                               elevation=0.0,
                                               diameter=6.5)
+
+class LJTTelescopePar(TelescopePar):
+    def __init__(self):
+        super(LJTTelescopePar, self).__init__(name='LJT',
+                                               longitude= 100.03,
+                                               latitude = 26.6951,
+                                               elevation= 3200,
+                                               diameter= 2.4)
