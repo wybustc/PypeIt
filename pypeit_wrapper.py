@@ -72,6 +72,58 @@ class pypeit_wrapper():
             cf['sensfunc']['UVIS']=uvis_params 
             cf.write()
             return 'continue'
+        
+    def config_calib(self): 
+        '''
+        This function is used to link the different calibration (here only for the arcs) sets to the different science/standards
+        '''
+        for path in self.path_setups: 
+            self.read_setup(path / f'{path.name}.pypeit') 
+            
+            ###Find arcs 
+            ind_arc = np.where(  np.char.find( self.parfile.data['frametype'].astype(str), 'arc') >=0 )[0]
+
+            if len(ind_arc) > 1: 
+                msgs.info(f'More than one arc in {path.name}  setup file, try to make a configuration ') 
+                
+                ###process the bias and flats, this usually should be same   
+                ind1= np.char.find(self.parfile.data['frametype'].astype(str), 'bias') ###NOTE char.find will return the index of the wanted str in the found elements, if not found, this will return -1 for that elements 
+                ind2= np.char.find(self.parfile.data['frametype'].astype(str), 'pixelflat' ) 
+                ind3= np.char.find(self.parfile.data['frametype'].astype(str), 'illumflat') 
+                ind4= np.char.find(self.parfile.data['frametype'].astype(str), 'trace')  
+
+                ind = np.where( (ind1 >=0) | (ind2>=0) | (ind3>=0) | (ind4>=0) )[0] 
+                self.parfile.data['calib'][ind] = 'all' 
+
+                ###allocate arcfiles to corresponding science/ standard file 
+                ind_sci= np.char.find( self.parfile.data['frametype'].astype(str), 'science') 
+                ind_std= np.char.find( self.parfile.data['frametype'].astype(str), 'standard') 
+                ind_sci= np.where( ( ind_sci>=0) | (ind_std>=0) )[0] 
+                for i, index in enumerate(ind_arc): 
+                    self.parfile.data['calib'][index]= i+1 
+                    arc_name = self.parfile.data['target'][index] 
+
+                    ind_name = self.parfile.data['target'][ind_sci]==arc_name 
+                    self.parfile.data['calib'][ind_sci[ind_name]] = i+1 
+
+                ### write to file 
+                self.parfile.write( path / f'{path.name}.pypeit' )
+
+                ###sucess or fail?
+                ind = self.parfile.data['calib'][ind_sci]==0 
+                if len(ind_sci[ind]) >0: 
+                    msgs.warn('Arc allocation failed') 
+                else: 
+                    msgs.info('Arc allocation success')
+            
+
+
+                a= input('Open the pypeit file to check/correct the calib columns; Press enter to continue')
+                subprocess.run(f'notepad { path/ f"{path.name}.pypeit"}', shell=True, check=True)  
+            
+
+
+                
 
     def pypeit_setup(self, pre_pypeit=False): 
         '''
@@ -167,7 +219,7 @@ class pypeit_wrapper():
         self.pypeit_setup(pre_pypeit=False) 
             
 
-    def pre_pypeit(self, check_quality=False,**preParams): 
+    def pre_pypeit(self, check_quality=False,copyfile=True, **preParams): 
         '''
         This function runs the data preparation scrpt 
         TO   throw unuseful files or configurations  
@@ -195,7 +247,10 @@ class pypeit_wrapper():
         path_new.mkdir()  
         for file in self.file_ret: 
             if not (path_new / file).exists(): 
-                os.link(self.path_dir / file, path_new / file) 
+                if copyfile:
+                    shutil.copy(self.path_dir / file, path_new / file) 
+                else:
+                    os.link(self.path_dir / file, path_new / file) 
         self.path_dir = path_new 
 
         ###run the pypeit_setup again  
@@ -225,6 +280,8 @@ class pypeit_wrapper():
         if self.instrument=='ljt_yfosc': 
             self.ljt_yfosc_prePypeit(preParams) 
 
+        self.config_calib()
+
 
     def run_pypeit(self, path_setup= None,  configs={}): 
         '''
@@ -249,7 +306,7 @@ class pypeit_wrapper():
                 self.parfile.config.update(configs) 
                 self.parfile.write(path_pypeit) 
             
-            subprocess.run(f'run_pypeit {path_pypeit} -o', check=True)
+            subprocess.run(['run_pypeit', str(path_pypeit),  '-o'], check=True)
 
     @staticmethod
     def get_median_index(lst):
@@ -586,44 +643,70 @@ class pypeit_wrapper():
 
 
             msgs.info('Beginning to the coadd the 1d spec') 
-            # print(self.target_exp) 
-            print(self.useful_spat)
             path_sciences = path_setup.glob(f'Science_*')
             for path_science in path_sciences: 
                 # print('hello')
                 path_coadd = path_setup / path_science.name.replace('Science', 'coadd1d') 
                 
                 os.chdir(path_coadd) 
-                subprocess.run('pypeit_flux_setup %s'%path_science, shell=True)
+                subprocess.run(['pypeit_flux_setup', str(path_science)]) 
 
                 par = Coadd1DFile.from_file(f'{self.instrument}.coadd1d')
 
                 ###coadd1d for each target 
                 for target in self.target_exp: 
                     ###coadd1d for each spat
+                    # print(self.useful_spat[target])
+                    # print(self.target_exp[target])
                     for spat in self.useful_spat[target]: 
+                        print('hello %s'%spat)
                         filenames= [] ; spat_names= [] 
                         for filename in self.target_exp[target]: 
                             filenames.append(filename) 
                             spat_name, spat_posi, sep = self.get_closestSpat(spat, path_science / filename) 
                             spat_names.append(spat_name) 
-                        
+
                         par.config['coadd1d']['coaddfile']= '%s_spat%04d.fits'%(target, spat) 
                         # par.data['filename']=filenames
                         # par.data['obj_id']  =spat_names 
                         par.data=Table({'filename': filenames, 'obj_id': spat_names})
-
-                    path_coadd1dfile= path_coadd / ( '%s_spat%04d.coadd1d'%(target, spat) )
-                    # print(path_coadd1dfile)
-                    par.write(path_coadd1dfile ) 
+                        path_coadd1dfile= path_coadd / ( '%s_spat%04d.coadd1d'%(target, spat) )
+                        # print(path_coadd1dfile)
+                        par.write(path_coadd1dfile ) 
                 
-                    subprocess.run('pypeit_coadd_1dspec %s'%path_coadd1dfile)
+                        subprocess.run(['pypeit_coadd_1dspec', str(path_coadd1dfile)],check=True)
 
-    def telluric_correction(self):
+
+    def telluric_correction(self, tellgrid=None):
         '''
         This function is used to do the telluric correction for each coadded 1dspec
+        Input: 
+             tellgrid, if you want use a specific tellgrid file, you can refer to this variable, the default is None, the it will use the default tellgrid file determined by the pypeit
         '''
-        pass
+        if self.path_setups is None: 
+            msgs.info('No setup in the self variable, finding them in the work dir') 
+            self.path_setups= self.path_work.glob(f'*{self.instrument}*') 
+        
+        for path_setup in self.path_setups: 
+            ###find the coadd1d directory  
+            path_coadds= path_setup.glob('coadd1d_*')
+            
+            for path_coadd in  path_coadds: 
+                path_tell = path_setup / path_coadd.name.replace('coadd1d', 'telluric')
+                msgs.info('Copying the spec1d file to the telluric directory')
+                if path_tell.exists(): 
+                    shutil.rmtree(path_tell) 
+                shutil.copytree(path_coadd, path_tell, ignore=lambda dir, names: [name for name in names if not name.endswith('.fits')]) 
+
+                os.chdir(path_tell) 
+                for path_1d in path_tell.glob('*.fits'): 
+                    command= ['pypeit_tellfit', str(path_1d),  '--objmodel',  'poly'] 
+                    # command = 'pypeit_tellfit %s --objmodel poly'%path_1d
+                    if tellgrid is not None: 
+                        command  = command + ['-g', str(tellgrid)]
+                        # command = command +'  -g %s'%tellgrid
+                    subprocess.run(command, check=True)
+
                     
                     
 

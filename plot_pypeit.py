@@ -17,12 +17,13 @@ if True:
     plt.show() 
     
 
-if False: 
-    data= Table.read(r"D:\ExtractSpec\cwobject.txt")
-    plt.plot(data['wave'])
+if True: 
+    # data= Table.read(r"D:\ExtractSpec\cwobject.txt")
+    # plt.plot(data['wave'])
     hdu=fits.open(r"D:\ExtractSpec\WFST0742frfr_1d.fits") 
     flux = hdu[0].data*1e17
     wave = hdu[0].header['CRVAL1'] + hdu[0].header['CD1_1']*(np.arange(len(flux))-1)
+    
     print(hdu[0].data) 
 
     plt.plot(wave, flux) 
@@ -37,6 +38,13 @@ if False:
     ind= wave> 0 
     wave, flux = wave[ind], flux[ind]
     plt.plot(wave/(1+redshift), flux) 
+
+    hdu=fits.open(r"D:\ExtractSpec\2M4\251013\251013_test2\ljt_yfosc_A\telluric_ljg2m401-yf01-20251018-0186-e00-BD+28d4211\AT2025zow_spat0709_tellcorr.fits") 
+    wave, flux =hdu[1].data['wave'], hdu[1].data['flux'] 
+    ind= wave> 0 
+    wave, flux = wave[ind], flux[ind]
+    plt.plot(wave/(1+redshift), flux) 
+    
 
     hdu=fits.open(r"D:\ExtractSpec\AT2025zow_1d.fits") 
     flux = hdu[0].data*1e17

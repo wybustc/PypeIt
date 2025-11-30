@@ -1,13 +1,33 @@
 from pypeit_wrapper import pypeit_wrapper 
 
 
-if True:
-    ljt= pypeit_wrapper(path_dir = r"D:\ExtractSpec\2M4\251013\251013_test\251013", path_work=r"D:\ExtractSpec\2M4\251013\251013_test", instrument='ljt_yfosc',clean=False)
+if False:
+    ###still one error, about for cycle 
+    ljt= pypeit_wrapper(path_dir = r"D:\ExtractSpec\2M4\251013\251013_test\251013", path_work=r"D:\ExtractSpec\2M4\251013\251013_test2", instrument='ljt_yfosc',clean=False)
     # ljt.pre_pypeit(check_quality=False) 
     # ljt.run_pypeit( ) #configs={'calibrations':{'wavelengths':{'method': 'holy-grail'}}}
     # ljt.produce_sensfunc()
     # ljt.flux_calib(path_sens= {'ljt_yfosc_A': {'all': r"D:\ExtractSpec\2M4\251018_STD\ljt_yfosc_A\sensfunc"}})
-    ljt.codd1d_spec() 
+    ljt.codd1d_spec(target_method='coord') 
+    ljt.telluric_correction()
+
+if True: 
+    ljt= pypeit_wrapper(path_dir = r"D:\ExtractSpec\2M4\251026\251026", path_work=r"D:\ExtractSpec\2M4\251026", instrument='ljt_yfosc',clean=True)
+    ljt.pre_pypeit(check_quality=False, copyfile=True) 
+    ljt.run_pypeit( ) #configs={'calibrations':{'wavelengths':{'method': 'holy-grail'}}}
+    ljt.produce_sensfunc()
+    ljt.flux_calib(path_sens= {'ljt_yfosc_A': {'all': r"D:\ExtractSpec\2M4\251018_STD\ljt_yfosc_A\sensfunc"}})
+    ljt.codd1d_spec(target_method='coord') 
+    ljt.telluric_correction()
+
+if False: 
+    ljt= pypeit_wrapper(path_dir = r"D:\ExtractSpec\2M4\251129\251129", path_work=r"D:\ExtractSpec\2M4\251129", instrument='ljt_yfosc',clean=False)
+    ljt.pre_pypeit(check_quality=False) 
+    ljt.run_pypeit( ) #configs={'calibrations':{'wavelengths':{'method': 'holy-grail'}}}
+    ljt.produce_sensfunc()
+    ljt.flux_calib(path_sens= {'ljt_yfosc_A': {'all': r"D:\ExtractSpec\2M4\251018_STD\ljt_yfosc_A\sensfunc"}})
+    ljt.codd1d_spec(target_method='coord') 
+    ljt.telluric_correction()
 
 
 if False: 
@@ -24,3 +44,8 @@ if False:
     plt.plot(data['col1'][::-1]+7, data['col2'])
     plt.show() 
 
+if False: 
+    import subprocess
+    import os 
+    print(os.getcwd() )
+    subprocess.run(['ls','-l'])

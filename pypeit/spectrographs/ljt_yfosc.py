@@ -294,7 +294,7 @@ class LJTYFOSCSpectrograph(spectrograph.Spectrograph):
         # TODO: Allow for 'sky' frame type, for now include sky in
         # 'science' category
         if ftype in ['science', 'standard']:
-            return good_exp & (fitstbl['lampstat01'] == 'lamp_off') & (fitstbl['idname'] == 'EXPOSE') & (fitstbl['dispname'] != 'open')
+            return good_exp & (fitstbl['lampstat01'] == 'lamp_off') & (fitstbl['idname'] == 'EXPOSE') & np.isin(fitstbl['dispname'], ['grism3','grism14','grism8'])
         if ftype == 'bias':
             return good_exp & (fitstbl['idname'] =='BIAS')   
         if ftype in ['pixelflat', 'trace', 'illumflat']:

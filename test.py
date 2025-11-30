@@ -1,16 +1,19 @@
 from pypeit.inputfiles import InputFile, PypeItFile,FluxFile, Coadd1DFile
 import subprocess 
+import numpy as np 
 
 if False: 
     # InputFile.data_block='data'
-    cls= PypeItFile.from_file(r"D:\ExtractSpec\2M4\251018_STD\ljt_yfosc_A\ljt_yfosc_A.pypeit")
+    cls= PypeItFile.from_file(r"D:\ExtractSpec\2M4\251026\ljt_yfosc_A\ljt_yfosc_A.pypeit")
     # print(cls.data) 
     # print(cls.setup) 
     # print(cls.config, cls.config.__class__) 
     # print(cls.file_paths)
     # cls.setup['Setup B']=' '
 
-    print(cls.data['frametype']=='standard') 
+    # print(cls.data['frametype']=='standard') 
+    print(np.where( np.char.find( cls.data['frametype'].astype(str), 'arc') >=0)[0]  ) 
+
     # cls.write(r"D:\ExtractSpec\2M4\251013\ljt_yfosc_B\ljt_yfosc_B_test.pypeit")
 
 if False: 
@@ -189,7 +192,7 @@ if False:
 
     hdul.close()  # 关闭文件
 
-if True: 
+if False: 
     ###f
     from astropy.io import fits 
     from astropy.table import Table 
@@ -201,3 +204,9 @@ if True:
     # par.data['obj_id']  =['1', '2']
     print(par.data.__class__) 
     print(par.data)
+
+if  True: 
+    data = ['a', 'b', 'c', 'd', 'e', 'f'] 
+    for i , j in enumerate(data): 
+        print(i, j) 
+        
