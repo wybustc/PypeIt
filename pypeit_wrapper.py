@@ -498,14 +498,16 @@ class pypeit_wrapper():
                 self.target_exp[name]= self.target_exp.get(name, []).append(path_spec.name) #NOTE we record the file name not the file path 
         elif target_method=='coord':
             for path_spec in path_science.glob('spec1d*.fits'): 
+                # print(path_spec) 
                 hdu =fits.open(path_spec) 
                 c1  =SkyCoord(ra=hdu[0].header['RA'], dec=hdu[0].header['dec'], unit='deg') 
-                hdu.close() 
+                # hdu.close() 
 
                 foundsame=False
                 for key in self.target_exp: 
-                    hdu = fits.open( path_setup / 'Science' / self.target_exp[key][0]) ##we only use one file to see if the coords are within wanted separation 
-                    c2  = SkyCoord(ra= hdu[0].header['RA'], dec=hdu[0].header['dec'], unit='deg') 
+                    hdu2 = fits.open( path_setup / 'Science' / self.target_exp[key][0]) ##we only use one file to see if the coords are within wanted separation 
+                    c2  = SkyCoord(ra= hdu2[0].header['RA'], dec=hdu2[0].header['dec'], unit='deg') 
+                    hdu2.close()
                     if c1.separation(c2).to(u.arcsec).value< sep: 
                         self.target_exp[key].append(path_spec.name) 
                         foundsame =True
@@ -637,6 +639,7 @@ class pypeit_wrapper():
 
             msgs.info('Matching targets with exposures')
             self.match_target(path_setup, target_method= target_method) 
+            print(self.target_exp) 
 
             msgs.info('Determing the spatial pixel position for each target') 
             self.determin_spat(path_setup, method= spat_method, max_spat_gap=max_spat_gap, user_provided= user_provided)  
