@@ -229,6 +229,10 @@ class LJTYFOSCSpectrograph(spectrograph.Spectrograph):
         par['calibrations']['wavelengths']['method'] = 'full_template'
         par['calibrations']['wavelengths']['lamps'] = ['HeI','NeI']
 
+        # senfunc fitting 
+        par['sensfunc']['algorithm'] = 'UVIS'
+        par['sensfunc']['UVIS']['polycorrect'] = False
+
         # Set the default exposure time ranges for the frame typing
         par['calibrations']['biasframe']['exprng']     = [None, 0.001]
         par['calibrations']['darkframe']['exprng']     = [999999, None]     # No dark frames

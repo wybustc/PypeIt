@@ -49,7 +49,7 @@ class pypeit_wrapper():
         elif a in ['no', 'No', 'N','n']: 
             return False 
         else: 
-            input_func('Input invalid; Please input again') 
+            self.input_func('Input invalid; Please input again') 
 
     @staticmethod
     def sensfunc_input(sens_params, uvis_params): 
@@ -58,10 +58,10 @@ class pypeit_wrapper():
         else: 
             pdict={}; dict_up={} 
             for p in pinput.split(','):
-                if p.split(':')[0].strip() in ['hydrogen_mask_wid','mask_helium_lines','mask_hydrogen_lines']: 
-                    dict_up[p.split(':')[0]]=p.split(':')[1]  
+                if p.split(':')[0].strip() in ['hydrogen_mask_wid','mask_helium_lines','mask_hydrogen_lines', 'polyorder']: 
+                    dict_up[p.split(':')[0].strip()]=p.split(':')[1]  
                 else: 
-                    pdict[p.split(':')[0]]=p.split(':')[1] 
+                    pdict[p.split(':')[0].strip()]=p.split(':')[1] 
                     
             uvis_params.update(pdict) 
             sens_params.update(dict_up)
@@ -69,7 +69,7 @@ class pypeit_wrapper():
             cf=config()
             cf.filename='sensfunc.par'
             cf['sensfunc']=sens_params 
-            cf['sensfunc']['UVIS']=uvis_params 
+            cf['sensfunc']['UVIS']={'polycorrect': False} | uvis_params ##NOTE In the default case, we set polycorrect as False 
             cf.write()
             return 'continue'
         
@@ -144,10 +144,13 @@ class pypeit_wrapper():
         self.path_setups= PathClass.cwd().glob(f'*{self.instrument}*')
 
     @staticmethod
-    def run_ds9(path_file): 
+    def run_ds9(path_file,dataext=None): 
         if sys.platform == 'win32':
             #TODO this still can not prevent the procedure to go on when open the ds9 
-            process = subprocess.Popen(r'powershell -Command ds9 %s'%path_file, shell=True)
+            if dataext is None:
+                process = subprocess.Popen(r'powershell -Command ds9 %s'%path_file, shell=True)
+            else: 
+                process = subprocess.Popen(r'powershell -Command ds9 %s[%d]'%(path_file,dataext), shell=True)
             # time.sleep(0.1) ###Waiting for DS9 to launch； In fact, this may be not necessary
 
             # check whether DS9 is closed 
@@ -159,7 +162,10 @@ class pypeit_wrapper():
                     break  # ds9 already closed 
                 time.sleep(0.1) 
         else: 
-            subprocess.run(['ds9', path_file], check=True) 
+            if dataext is None:
+                subprocess.run(['ds9',  path_file], check=True) 
+            else:
+                subprocess.run(['ds9', '%s[%d]'%path_file], check=True) 
 
     def read_setup(self, path): 
         '''
@@ -219,7 +225,7 @@ class pypeit_wrapper():
         self.pypeit_setup(pre_pypeit=False) 
             
 
-    def pre_pypeit(self, check_quality=False,copyfile=True, **preParams): 
+    def pre_pypeit(self, check_quality=False,copyfile=True, configCalib=True, dataext=None,  **preParams): 
         '''
         This function runs the data preparation scrpt 
         TO   throw unuseful files or configurations  
@@ -268,7 +274,7 @@ class pypeit_wrapper():
                     for d in data: 
                         path_file= self.path_dir / d['filename']
                         print(f'Opening file: {path_file}') 
-                        self.run_ds9(path_file) 
+                        self.run_ds9(path_file, dataext=dataext) 
                         img_chk= self.input_func('If the %s is good? (default; yes)'%d['frametype']) 
                         if not img_chk: 
                             os.remove(path_file) 
@@ -280,7 +286,8 @@ class pypeit_wrapper():
         if self.instrument=='ljt_yfosc': 
             self.ljt_yfosc_prePypeit(preParams) 
 
-        self.config_calib()
+        if configCalib:
+            self.config_calib()
 
 
     def run_pypeit(self, path_setup= None,  configs={}): 
@@ -394,14 +401,18 @@ class pypeit_wrapper():
             filenames= list(par.data['filename'][ind])
             for filename in filenames: 
                 path_1d = list( (path_setup / 'Science').glob('spec1d*%s*fits'%filename.split('.')[0] ))[0] 
-                std_sign= path_1d.name.split('_')[1]
+                std_sign= "".join(path_1d.name.split('_')[1:-2])
 
                 ###first produce the par file for sensfunc 
                 cf=config()
                 cf.filename='sensfunc.par'
                 cf['sensfunc'] = sens_params.get(setup, {}) 
+                cf['sensfunc']['UVIS']={'polycorrect': False} ##NOTE if True it will use the polyfit results to correct the Bspline fit at the mask region (It seems not all mask regions but only for narrow mask region?).
+                                                              ##Hence if it's true, it can lead results that the masked region (e.g. emission line mask) has results jump at above or below the predicted results 
+                                                              ##NOTE but the polyfit results can be improved by increase the polyorder parameter, hence maybe  in some case, this can be set to True to in combination with bspline 
+                                                              ##fit when bspline fit can not fit all region well.
                 if setup in uvis_params:
-                    cf['sensfunc']['UVIS']=uvis_params['config']  
+                    cf['sensfunc']['UVIS'].update(uvis_params[setup])   
                 cf.write() 
 
                 while True:
@@ -444,7 +455,7 @@ class pypeit_wrapper():
                     if 'prefer' not in path_sens[setup]: 
                         std_prefer= self.compare_std(path_sensDir) 
                 else: 
-                    raise Exception('Please run the produce sensfunc first, or directory provied the path to the direcotry containing the std files') 
+                    raise Exception('Please run the produce sensfunc first, or directly provied the path to the direcotry containing the std files') 
             else: 
                 path_sensDir=self.path_sens[setup] ['all'] 
                 if 'prefer' not in self.path_sens[setup]['prefer']: 
@@ -485,7 +496,7 @@ class pypeit_wrapper():
                 fp.write('%s'%std_prefer) 
 
     
-    def match_target(self, path_setup, target_method='coord', sep=0.2): 
+    def match_target(self, path_setup, target_method='coord', sep=None): 
         '''
         match exposures for the same targets
         '''
@@ -497,6 +508,12 @@ class pypeit_wrapper():
                 name = hdu[0].header['target'] 
                 self.target_exp[name]= self.target_exp.get(name, []).append(path_spec.name) #NOTE we record the file name not the file path 
         elif target_method=='coord':
+            if sep is None: 
+                if self.instrument in ['ljt_yfosc']: 
+                    sep = 0.2 
+                elif self.instrument in ['p200_ngps_r','p200_ngps_i']: #NOTE the pipeline for p200_ngps used telescope coord not requested one , hence it may have large offset 
+                    sep = 2 
+                    
             for path_spec in path_science.glob('spec1d*.fits'): 
                 # print(path_spec) 
                 hdu =fits.open(path_spec) 
@@ -513,7 +530,15 @@ class pypeit_wrapper():
                         foundsame =True
                         break 
                 if foundsame==False: 
-                    self.target_exp[hdu[0].header['target']] = [path_spec.name] 
+                    namekey = hdu[0].header['target']
+                    if namekey in self.target_exp: ##In some case, hdu[0].header['target'] may be same as old one, even when foundsame=False. This could be due to smae object with offset> sep or different object but one of them has wrong name 
+                        for i in  range(10):
+                            if (namekey+f'_{i}') in self.target_exp: continue 
+                            else: 
+                                self.target_exp[namekey+f'_{i}'] = [path_spec.name] 
+                                break 
+                    else:
+                        self.target_exp[namekey] = [path_spec.name] 
 
     @staticmethod
     def get_allspat(path_spec):
@@ -664,6 +689,7 @@ class pypeit_wrapper():
                     for spat in self.useful_spat[target]: 
                         print('hello %s'%spat)
                         filenames= [] ; spat_names= [] 
+                        print(spat, self.target_exp[target]) 
                         for filename in self.target_exp[target]: 
                             filenames.append(filename) 
                             spat_name, spat_posi, sep = self.get_closestSpat(spat, path_science / filename) 
@@ -680,12 +706,35 @@ class pypeit_wrapper():
                         subprocess.run(['pypeit_coadd_1dspec', str(path_coadd1dfile)],check=True)
 
 
-    def telluric_correction(self, tellgrid=None):
+    def telluric_correction(self, tellgrid=None, path_res=None):
         '''
         This function is used to do the telluric correction for each coadded 1dspec
         Input: 
              tellgrid, if you want use a specific tellgrid file, you can refer to this variable, the default is None, the it will use the default tellgrid file determined by the pypeit
+             If path_res is not None, it will do the telluric correction for fits file in the path_res 
         '''
+        if path_res is not None: 
+            path_res  = PathClass( path_res) 
+            path_tell = path_res  / 'telluric' 
+            if path_tell.exists(): 
+                shutil.rmtree(path_tell) 
+
+            os.mkdir(path_tell) 
+            for path_1d in path_res.glob('*.fits'): 
+                shutil.copy(path_1d, path_tell / path_1d.name)
+            
+            os.chdir(path_tell) 
+            for path_1d in path_tell.glob('*.fits'): 
+                command= ['pypeit_tellfit', str(path_1d),  '--objmodel',  'poly'] 
+                # command = 'pypeit_tellfit %s --objmodel poly'%path_1d
+                if tellgrid is not None: 
+                    command  = command + ['-g', str(tellgrid)]
+                    # command = command +'  -g %s'%tellgrid
+                subprocess.run(command, check=True)
+            
+            return ':)'
+ 
+
         if self.path_setups is None: 
             msgs.info('No setup in the self variable, finding them in the work dir') 
             self.path_setups= self.path_work.glob(f'*{self.instrument}*') 

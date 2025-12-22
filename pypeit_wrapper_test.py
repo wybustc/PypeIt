@@ -28,7 +28,7 @@ if False:
     # ljt.run_pypeit( ) #configs={'calibrations':{'wavelengths':{'method': 'holy-grail'}}}
     # ljt.produce_sensfunc()
     # ljt.flux_calib(path_sens= {'ljt_yfosc_A': {'all': r"D:\ExtractSpec\2M4\251018_STD\ljt_yfosc_A\sensfunc"}})
-    ljt.codd1d_spec(target_method='coord') 
+    # ljt.codd1d_spec(target_method='coord') 
     ljt.telluric_correction()
 
 
@@ -68,3 +68,16 @@ if False:
     # ind =hdu[1].data['wave']> 0 
     # plt.plot(hdu[1].data['wave'][ind], hdu[1].data['flux'][ind]) 
     # plt.show() 
+
+if False: 
+    import matplotlib.pyplot as plt 
+    from astropy.io import fits 
+
+    hdu=fits.open(r"D:\ExtractSpec\2M4\251129\ljt_yfosc_A\telluric_ljg2m401-yf01-20251129-0271-e00-HILT600\J0810+2455_spat0814_tellcorr.fits")
+    ind = hdu[1].data['wave'] > 0 
+    plt.plot(hdu[1].data['wave'][ind], hdu[1].data['flux'][ind]) 
+
+    hdu=fits.open(r"D:\ExtractSpec\2M4\251129\ljt_yfosc_A\telluric_ljg2m401-yf01-20251129-0271-e00-HILT600\J0810+2455_spat0814.fits") 
+    ind = hdu[1].data['wave'] > 0 
+    plt.plot(hdu[1].data['wave'][ind], hdu[1].data['flux'][ind])
+    plt.show() 
